@@ -1,0 +1,84 @@
+---
+title: "Practical Machine Learning - Human Activity Recognition Report"
+author: "Jean Pelkey"
+date: "September 10, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Overview
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website [here]: (http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har).
+
+
+## Synopsis
+
+A Random Forest Model accurately predicted the 20 quiz test cases with 100% out of sample accuracy.  The model was 99.89% accurate for the validation data set. The author would like to recognize the team of Ugulino, W.; Cardador, D.; Vega, K.; Velloso, E.; Milidiu, R.; Fuks, H.  for their article and data set:  Wearable Computing: Accelerometers' Data Classification of Body Postures and Movements
+
+[Read more:] (http://groupware.les.inf.puc-rio.br/har#ixzz4sNxpe8oI)
+
+## Details of Analysis
+
+Data was extracted consisted of 19622 observations and 160 columns in the training data set. The test data set included 20 observations representing the 20 cases to be predicted in the final quiz.  The data was cleaned to remove columns that consisted of greater than half N/A or missing data as well as the first column which was the observation number. After cleaning, 59 columns remained in the training data set. The test data set was then coerced to have the same data types as the corresponding columns in training data se to prevent errors when trying to prediict classe with the final selected model. 
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(readr)
+library(caret)
+library(randomForest)
+
+#*  Set seed for reproducibility.  Read in testing & training data sets that were cleaned up offline. 
+setwd("~/R/Practical Machine Learning")
+set.seed(3456)
+
+comb_clean <- read.csv("~/R/Practical Machine Learning/pml_comb_clean.csv", header=TRUE, na.strings=c("NA","#DIV/0!","", "."))
+alltrain<-comb_clean[comb_clean$source=="train",]
+testing<-comb_clean[as.numeric(comb_clean$source)<21,]
+```  
+
+The training data set was subsetted into a training and validation data set using the CreateDataPartition function in R.  The partition randomly selected 60% of the training data set (data frame is sub.train) for training and the remaining 40% for model validation (data frame valid).  The training dta set contained 11776 observations and the validation data set contained 7846 observations. 
+
+```{r}
+#* create training and validation partitions from the training .CSV data set using 60%/40% training & validation, respectively. 
+inTrain<- createDataPartition(alltrain$classe, p = 0.60, list=FALSE)
+sub.train<-alltrain[inTrain,]
+valid<-alltrain[-inTrain,]
+```
+
+Analysis was completed using two methods: random forest and decision tree.  The random forest performed the best on the training and validation data. First set of results published below show the results of the decision tree prediction on the validation data set. The decision tree approach looks to split the data to create "like" or homogeneous groups by minimizing the differences within the groups.  The trees that result are easy to interpret but can lead to overfitting of the model and results are highly variable.  Accuracy for this model is 56% with many misclassifications of the classe responses in the validation data set. Further work was done to find a better model.
+
+```{r warning=FALSE}
+require(caret)
+fit1.rpart<-train(classe ~., data=sub.train, method="rpart")
+pred.rpart<-predict(fit1.rpart,valid)
+conf.rpart<-confusionMatrix(pred.rpart, valid$classe)
+print(conf.rpart)
+```
+
+A second model considered was the random forest.  The random forest model is a resampling method within the set. Each of the resamples leads to a different regression tree. The results are averaged across all possible trees which leads to a higher level of accuracy in teh resulting prediction tree. For this predictio problem, the Random Foresst method gavev much better results for predicting classe response variable vs. the decision tree method attempted previously.  Evaluating the output below, the prediction data set the model shows significant improvement in accuracy versus the prediction tree model with accuracy of 99.89% on out of sample error.  
+
+```{r warning=FALSE}
+fit1.rf<-randomForest(classe~., sub.train)
+pred.rf<-predict(fit1.rf, valid)
+conf.rf<-confusionMatrix(pred.rf, valid$classe)
+print(conf.rf)
+```
+
+Given the accuracy of the random forest, the testing data set was used to predict the final 20 conditions.  The data was submitted to the Coursera prediction quiz was 20/20 or 100% accurate. No further work was done given the out of sample accuracy observed with the random forest results.
+
+```{r}
+pred.test<-predict(fit1.rf, testing)
+final.answer<-data.frame(testing$source, pred.test)
+print(final.answer)
+```
+```{r echo=FALSE, eval=FALSE}
+write.csv(final.answer)
+```
+
+## Summary of Results
+
+The Random Forest model was the best prediction model of the two models attempted.  The model was 99.89% accurate for the validation data set of 7846 observations and predicted 20/20 or 100% of the testing data set. 
